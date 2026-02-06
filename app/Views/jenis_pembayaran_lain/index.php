@@ -1,0 +1,314 @@
+<?= $this->extend('layout/admin') ?>
+
+<?= $this->section('title') ?>Jenis Pembayaran Lain<?= $this->endSection() ?>
+
+<?= $this->section('content') ?>
+
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Jenis Pembayaran Lain</h1>
+    <div class="d-flex">
+        <!-- Search Bar -->
+        <input type="text" id="searchInput" class="form-control mr-2" placeholder="Cari pembayaran..." style="width: 250px;">
+        
+        <!-- Tombol Tambah -->
+        <a href="<?= base_url('jenis-pembayaran-lain/create') ?>" class="btn btn-primary btn-icon-split">
+            <span class="icon text-white-50">
+                <i class="fas fa-plus"></i>
+            </span>
+            <span class="text">Tambah Jenis Pembayaran</span>
+        </a>
+    </div>
+</div>
+
+<!-- Alert Messages -->
+<?php if (session()->getFlashdata('success')): ?>
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <?= session()->getFlashdata('success') ?>
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+<?php endif; ?>
+
+<?php if (session()->getFlashdata('error')): ?>
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <?= session()->getFlashdata('error') ?>
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+<?php endif; ?>
+
+<!-- Tabs Menu -->
+<ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item">
+        <a class="nav-link active" href="<?= base_url('jenis-pembayaran-lain') ?>">
+            <i class="fas fa-list"></i> Jenis Pembayaran
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="<?= base_url('jenis-pembayaran-lain/tagihan') ?>">
+            <i class="fas fa-paper-plane"></i> Tagihan
+        </a>
+    </li>
+</ul>
+
+<!-- Data Table -->
+<div class="card shadow mb-4">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <h6 class="m-0 font-weight-bold text-primary">Master Jenis Pembayaran</h6>
+        <div class="d-flex align-items-center">
+            <span class="badge badge-primary mr-3" id="totalPembayaran"><?= count($jenis_pembayaran) ?> Pembayaran</span>
+            <select id="rowsPerPage" class="form-control form-control-sm" style="width: auto;">
+                <option value="10">10 per halaman</option>
+                <option value="25">25 per halaman</option>
+                <option value="50">50 per halaman</option>
+                <option value="100">100 per halaman</option>
+            </select>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Nama Pembayaran</th>
+                        <th>Kategori</th>
+                        <th>Deskripsi</th>
+                        <th>Nominal</th>
+                        <th>Status</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <?php $no = 1; ?>
+                    <?php foreach ($jenis_pembayaran as $jp): ?>
+                    <tr>
+                        <td><?= $no++ ?></td>
+                        <td><strong><?= $jp['nama_pembayaran'] ?></strong></td>
+                        <td>
+                            <span class="badge badge-info"><?= ucfirst($jp['kategori']) ?></span>
+                        </td>
+                        <td><?= $jp['deskripsi'] ?? '-' ?></td>
+                        <td><strong class="text-success">Rp <?= number_format($jp['nominal'], 0, ',', '.') ?></strong></td>
+                        <td>
+                            <?php if ($jp['status'] == 'aktif'): ?>
+                                <span class="badge badge-success">Aktif</span>
+                            <?php else: ?>
+                                <span class="badge badge-secondary">Nonaktif</span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <a href="<?= base_url('jenis-pembayaran-lain/edit/' . $jp['id']) ?>" class="btn btn-warning btn-sm">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <a href="<?= base_url('jenis-pembayaran-lain/delete/' . $jp['id']) ?>" class="btn btn-danger btn-sm" 
+                               onclick="return confirm('Yakin ingin menghapus?')">
+                                <i class="fas fa-trash"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            
+            <!-- Pesan jika tidak ada hasil -->
+            <div id="noResultMessage" style="display: none; text-align: center; padding: 20px;">
+                <i class="fas fa-search fa-3x text-gray-300 mb-3"></i>
+                <p class="text-gray-600">Tidak ada data yang sesuai dengan pencarian</p>
+            </div>
+        </div>
+        
+        <!-- Pagination Controls -->
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <div id="paginationInfo" class="text-muted">
+                Menampilkan <span id="startRow">1</span> sampai <span id="endRow">10</span> dari <span id="totalRows"><?= count($jenis_pembayaran) ?></span> data
+            </div>
+            <nav aria-label="Page navigation">
+                <ul class="pagination mb-0" id="paginationControls">
+                    <!-- Pagination buttons will be generated by JavaScript -->
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<?= $this->endSection() ?>
+
+<?= $this->section('scripts') ?>
+<script>
+// Pagination Variables
+let currentPage = 1;
+let rowsPerPage = 10;
+let allRows = [];
+let filteredRows = [];
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    const tableBody = document.getElementById('tableBody');
+    allRows = Array.from(tableBody.getElementsByTagName('tr'));
+    filteredRows = [...allRows];
+    
+    // Initial pagination
+    updatePagination();
+    
+    // Rows per page change handler
+    document.getElementById('rowsPerPage').addEventListener('change', function() {
+        rowsPerPage = parseInt(this.value);
+        currentPage = 1;
+        updatePagination();
+    });
+});
+
+// Live Search
+document.getElementById('searchInput').addEventListener('keyup', function() {
+    const searchValue = this.value.toLowerCase();
+    const tableBody = document.getElementById('tableBody');
+    const noResultMessage = document.getElementById('noResultMessage');
+    
+    filteredRows = allRows.filter(row => {
+        const text = row.textContent.toLowerCase();
+        return text.includes(searchValue);
+    });
+    
+    // Reset to first page when searching
+    currentPage = 1;
+    
+    // Show/hide "no result" message
+    if (filteredRows.length === 0) {
+        tableBody.style.display = 'none';
+        noResultMessage.style.display = 'block';
+        document.getElementById('paginationControls').style.display = 'none';
+        document.getElementById('paginationInfo').style.display = 'none';
+    } else {
+        tableBody.style.display = '';
+        noResultMessage.style.display = 'none';
+        document.getElementById('paginationControls').style.display = 'flex';
+        document.getElementById('paginationInfo').style.display = 'block';
+    }
+    
+    // Update badge count
+    document.getElementById('totalPembayaran').textContent = filteredRows.length + ' Pembayaran';
+    document.getElementById('totalRows').textContent = filteredRows.length;
+    
+    updatePagination();
+});
+
+// Update Pagination
+function updatePagination() {
+    const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = Math.min(startIndex + rowsPerPage, filteredRows.length);
+    
+    // Hide all rows first
+    allRows.forEach(row => row.style.display = 'none');
+    
+    // Show only rows for current page
+    for (let i = startIndex; i < endIndex; i++) {
+        filteredRows[i].style.display = '';
+        // Update row number
+        filteredRows[i].getElementsByTagName('td')[0].textContent = i + 1;
+    }
+    
+    // Update pagination info
+    document.getElementById('startRow').textContent = filteredRows.length > 0 ? startIndex + 1 : 0;
+    document.getElementById('endRow').textContent = endIndex;
+    
+    // Generate pagination buttons
+    generatePaginationButtons(totalPages);
+}
+
+// Generate Pagination Buttons
+function generatePaginationButtons(totalPages) {
+    const paginationControls = document.getElementById('paginationControls');
+    paginationControls.innerHTML = '';
+    
+    if (totalPages <= 1) {
+        return;
+    }
+    
+    // Previous button
+    const prevLi = document.createElement('li');
+    prevLi.className = 'page-item' + (currentPage === 1 ? ' disabled' : '');
+    prevLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(${currentPage - 1}); return false;">
+        <i class="fas fa-chevron-left"></i>
+    </a>`;
+    paginationControls.appendChild(prevLi);
+    
+    // Page numbers
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage < maxVisiblePages - 1) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    // First page
+    if (startPage > 1) {
+        const firstLi = document.createElement('li');
+        firstLi.className = 'page-item';
+        firstLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(1); return false;">1</a>`;
+        paginationControls.appendChild(firstLi);
+        
+        if (startPage > 2) {
+            const dotsLi = document.createElement('li');
+            dotsLi.className = 'page-item disabled';
+            dotsLi.innerHTML = `<a class="page-link" href="#">...</a>`;
+            paginationControls.appendChild(dotsLi);
+        }
+    }
+    
+    // Visible pages
+    for (let i = startPage; i <= endPage; i++) {
+        const pageLi = document.createElement('li');
+        pageLi.className = 'page-item' + (i === currentPage ? ' active' : '');
+        pageLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(${i}); return false;">${i}</a>`;
+        paginationControls.appendChild(pageLi);
+    }
+    
+    // Last page
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+            const dotsLi = document.createElement('li');
+            dotsLi.className = 'page-item disabled';
+            dotsLi.innerHTML = `<a class="page-link" href="#">...</a>`;
+            paginationControls.appendChild(dotsLi);
+        }
+        
+        const lastLi = document.createElement('li');
+        lastLi.className = 'page-item';
+        lastLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(${totalPages}); return false;">${totalPages}</a>`;
+        paginationControls.appendChild(lastLi);
+    }
+    
+    // Next button
+    const nextLi = document.createElement('li');
+    nextLi.className = 'page-item' + (currentPage === totalPages ? ' disabled' : '');
+    nextLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(${currentPage + 1}); return false;">
+        <i class="fas fa-chevron-right"></i>
+    </a>`;
+    paginationControls.appendChild(nextLi);
+}
+
+// Change Page Function
+function changePage(page) {
+    const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+    if (page < 1 || page > totalPages) return;
+    
+    currentPage = page;
+    updatePagination();
+    
+    // Scroll to top of table
+    document.getElementById('dataTable').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Auto dismiss
+setTimeout(() => {
+    document.querySelectorAll('.alert').forEach(alert => {
+        alert.querySelector('.close')?.click();
+    });
+}, 3000);
+</script>
+<?= $this->endSection() ?>
